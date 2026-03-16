@@ -181,5 +181,17 @@ The final system will provide:
 
 This project is developed for academic purposes as part of the Cyber Security Project course.
 
+---
+##Folder srtucture
+Backend-server folder is meant for handling business logic at the server like filtering users input data before passing to AI model.
+
+The folder client is meant for frontend part of the application which is what users sees and interacts with.
+
+The folder datasets is meant for storing the data necessary to train the model.
+
+The folder docs is neseaasry for documenation of the projects.
+
+The folder model is meant for AI model training and testing and fine tuing.
+
 ```
 ```
