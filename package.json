@@ -11,13 +11,13 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/gakipalden-z/phishing-email-detector-llm.git"
+    "url": "git+https://github.com/gakipalden-z/Email-detector-AI.git"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/gakipalden-z/phishing-email-detector-llm/issues"
+    "url": "https://github.com/gakipalden-z/Email-detector-AI/issues"
   },
-  "homepage": "https://github.com/gakipalden-z/phishing-email-detector-llm#readme"
+  "homepage": "https://github.com/gakipalden-z/Email-detector-AI#readme"
 }
