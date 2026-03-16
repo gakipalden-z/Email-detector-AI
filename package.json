@@ -1,0 +1,23 @@
+{
+  "name": "ashim_dorji_aus",
+  "version": "1.0.0",
+  "description": "Phishing attacks are one of the most common cybersecurity threats that exploit human trust to steal sensitive information such as login credentials, financial details, and personal data. Traditional phishing detection techniques such as blacklists and rule-based filters often fail to detect new or sophisticated phishing attacks.",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/gakipalden-z/phishing-email-detector-llm.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/gakipalden-z/phishing-email-detector-llm/issues"
+  },
+  "homepage": "https://github.com/gakipalden-z/phishing-email-detector-llm#readme"
+}

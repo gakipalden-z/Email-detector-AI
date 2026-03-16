@@ -1,0 +1,16 @@
+backend-server/node_modules/
+backend-server/.env
+backend-server/dist/
+
+client/node_modules/
+client/.env
+
+mobile/node_modules/
+mobile/.env
+
+model/venv/
+model/__pycache__/
+
+.vscode/
+node_modules/
+.env
