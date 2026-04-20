@@ -1,14 +1,15 @@
 // controllers/authController.js
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
-import { User } from "../model/user.js";
+import { User } from "../models/user.js";
 
 export const register = async (req, res) => {
-  const { email, password, role } = req.body;
+  const { name, email, password, role  } = req.body;
 
   const hashed = await bcrypt.hash(password, 10);
 
   const user = await User.create({
+    name,
     email,
     password: hashed,
     role
@@ -32,5 +33,5 @@ export const login = async (req, res) => {
     { expiresIn: "1d" }
   );
 
-  res.json({ token });
+  res.json({ token:token, user:user });
 };

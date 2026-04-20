@@ -1,0 +1,62 @@
+{
+  "emails": [
+    {
+      "id": 1,
+      "text": "URGENT: Your account will be suspended in 24 hours. Click here to verify your identity: http://secure-login-verify.example-bank.ru/auth",
+      "prediction": "Phishing",
+      "confidence": 0.94,
+      "explanation": [
+        "Urgent / fear-inducing language ('will be suspended in 24 hours')",
+        "Suspicious lookalike domain (.ru TLD impersonating a bank)",
+        "Requests account credential verification via external link",
+        "Generic greeting, no personalization"
+      ],
+      "highlights": ["URGENT", "suspended in 24 hours", "Click here to verify", "secure-login-verify.example-bank.ru"]
+    },
+    {
+      "id": 2,
+      "text": "Hi team, just a reminder that our weekly sync is scheduled for tomorrow at 10 AM in Conference Room B. Agenda attached.",
+      "prediction": "Legitimate",
+      "confidence": 0.91,
+      "explanation": [
+        "Neutral, professional tone",
+        "No external links or attachments requesting credentials",
+        "Consistent with internal calendar context",
+        "No request for sensitive information"
+      ],
+      "highlights": []
+    },
+    {
+      "id": 3,
+      "text": "Congratulations! You've been selected to receive a $1,000 Amazon gift card. Claim now: bit.ly/free-gift-9921",
+      "prediction": "Phishing",
+      "confidence": 0.88,
+      "explanation": [
+        "Unsolicited prize / reward bait",
+        "Shortened URL hides the true destination",
+        "Pressure to act ('Claim now')",
+        "No verifiable sender identity"
+      ],
+      "highlights": ["Congratulations", "$1,000 Amazon gift card", "bit.ly/free-gift-9921"]
+    }
+  ],
+  "models": [
+    { "id": "logreg", "name": "Logistic Regression", "accuracy": 0.87, "precision": 0.85, "recall": 0.83, "f1": 0.84, "params": "12K", "latency": "4ms" },
+    { "id": "bert", "name": "BERT-base", "accuracy": 0.95, "precision": 0.94, "recall": 0.93, "f1": 0.935, "params": "110M", "latency": "82ms" },
+    { "id": "distilbert", "name": "DistilBERT", "accuracy": 0.93, "precision": 0.92, "recall": 0.91, "f1": 0.915, "params": "66M", "latency": "41ms" },
+    { "id": "llama", "name": "LLaMA-3 8B", "accuracy": 0.96, "precision": 0.96, "recall": 0.95, "f1": 0.955, "params": "8B", "latency": "320ms" }
+  ],
+  "confusion": [
+    { "name": "TP", "value": 482 },
+    { "name": "FP", "value": 18 },
+    { "name": "FN", "value": 24 },
+    { "name": "TN", "value": 476 }
+  ],
+  "users": [
+    { "id": "u1", "name": "Aarav Mehta", "email": "aarav@lab.io", "role": "researcher", "status": "approved", "createdAt": "2025-02-11" },
+    { "id": "u2", "name": "Lina Park", "email": "lina@uni.edu", "role": "user", "status": "pending", "createdAt": "2025-03-02" },
+    { "id": "u3", "name": "Mateo Rossi", "email": "mateo@corp.com", "role": "user", "status": "approved", "createdAt": "2025-01-19" },
+    { "id": "u4", "name": "Yui Tanaka", "email": "yui@lab.io", "role": "researcher", "status": "pending", "createdAt": "2025-03-09" },
+    { "id": "u5", "name": "Sven Olsen", "email": "sven@admin.io", "role": "admin", "status": "approved", "createdAt": "2024-11-30" }
+  ]
+}
