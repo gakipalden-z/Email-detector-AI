@@ -40,6 +40,44 @@ print("Model loaded successfully.")
 # =========================
 app = FastAPI(title="Phishing Email Detection API")
 
+# explanation 
+def explain_email(text, prediction):
+    print("Generating explanation for the email...", prediction)
+    text_lower = text.lower()
+
+    reasons = []
+
+    # 🚨 Urgency indicators
+    urgency_keywords = ["urgent", "immediately", "now", "asap", "suspended", "limited time"]
+    if any(word in text_lower for word in urgency_keywords):
+        reasons.append("The email creates urgency (e.g., 'urgent', 'immediately'), which is common in phishing attacks.")
+
+    # 🔐 Credential / verification requests
+    credential_keywords = ["verify", "login", "password", "account", "confirm", "update"]
+    if any(word in text_lower for word in credential_keywords):
+        reasons.append("The email asks for account verification or login details, which may indicate credential harvesting.")
+
+    # 🔗 Suspicious links
+    if "http" in text_lower or "www" in text_lower:
+        reasons.append("The email contains links, which could redirect to malicious websites.")
+
+    # 💰 Financial bait
+    money_keywords = ["bank", "payment", "invoice", "transfer", "refund", "prize"]
+    if any(word in text_lower for word in money_keywords):
+        reasons.append("The email references financial matters, a common phishing tactic.")
+
+    # ⚠️ Threat / fear language
+    threat_keywords = ["suspended", "blocked", "terminated", "legal action"]
+    if any(word in text_lower for word in threat_keywords):
+        reasons.append("The email uses threatening language to pressure the user.")
+
+    # 🧠 Final response
+    if reasons:
+        return " | ".join(reasons)
+    else:
+        return "No strong phishing indicators found."
+
+
 
 # =========================
 # REQUEST SCHEMA
@@ -70,38 +108,15 @@ def predict_email(text):
     pred_class = torch.argmax(probs, dim=-1).item()
     confidence = probs[0][pred_class].item()
 
+    label = "Safe Email" if pred_class == 0 else "Phishing Email"
+    explanation = explain_email(text, label)
+
     return {
         "label": id2label[pred_class],
-        "confidence": round(confidence, 4)
+        "confidence": round(confidence, 4),
+        "explanation": explanation
     }
 
-# flag
-def detect_flags(text: str):
-    flags = []
-
-    # 🔥 Urgency
-    if re.search(r"\b(urgent|immediately|act now|asap|right away)\b", text, re.I):
-        flags.append("Urgency language detected")
-
-    # 🔥 Suspicious links
-    if re.search(r"http[s]?://", text):
-        flags.append("Contains link")
-
-    # 🔥 Credential request
-    if re.search(r"\b(password|verify|login|account|bank|otp)\b", text, re.I):
-        flags.append("Requests sensitive information")
-
-    # 🔥 Threat language
-    if re.search(r"\b(suspended|blocked|locked|terminated)\b", text, re.I):
-        flags.append("Threat or pressure language")
-
-    # 🔥 Email spoofing clues
-    if re.search(r"\b(dear user|dear customer)\b", text, re.I):
-        flags.append("Generic greeting")
-    else:
-        flags.append("no flags detected")
-
-    return flags
 
 # =========================
 # API ENDPOINT
@@ -109,12 +124,11 @@ def detect_flags(text: str):
 @app.post("/predict")
 def predict(req: EmailRequest):
     result = predict_email(req.email_text)
-    flags = detect_flags(req.email_text)
     return {
         "input": req.email_text,
         "prediction": result["label"],
         "confidence": result["confidence"],
-        "flags": flags
+        "explanation": result["explanation"]
     }
 
 
