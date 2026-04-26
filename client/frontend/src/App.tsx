@@ -78,13 +78,13 @@ export default function App() {
         <Route path="/" element={<RootRedirect />} />
         
         <Route path="/detector" element={
-          <ProtectedRoute allowedRoles={["user", "researcher", "admin"]}>
+          <ProtectedRoute allowedRoles={["user", "researcher"]}>
             <Detector />
           </ProtectedRoute>
         } />
         
         <Route path="/researcher" element={
-          <ProtectedRoute allowedRoles={["researcher", "admin"]}>
+          <ProtectedRoute allowedRoles={["researcher"]}>
             <Researcher />
           </ProtectedRoute>
         } />

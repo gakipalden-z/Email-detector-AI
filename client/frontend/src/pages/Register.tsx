@@ -76,7 +76,7 @@ export default function Register() {
         </div>
 
         <form onSubmit={submit} className="space-y-4 rounded-2xl border border-border bg-card p-6 shadow-[var(--shadow-soft)]">
-          <Field label="Full name" type="text" value={name} onChange={setName} placeholder="Ada Lovelace" />
+          <Field label="Full name" type="text" value={name} onChange={setName} placeholder="Your Name" />
           <Field label="Email" type="email" value={email} onChange={setEmail} placeholder="you@domain.com" />
           <Field label="Password" type="password" value={password} onChange={setPassword} placeholder="At least 6 characters" />
 

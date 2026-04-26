@@ -1,117 +1,305 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Shell } from "@/components/Shell";
-import { mock } from "@/lib/mockApi";
-import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, CartesianGrid, Cell } from "recharts";
-import { Database, Play, Rocket } from "lucide-react";
+import { Database } from "lucide-react";
+import toast from "react-hot-toast";
+
+type Dataset = {
+  name: string;
+  size: string;
+  rows: string;
+  status: "uploaded" | "processed" | "training" | "completed";
+};
 
 export default function Researcher() {
-  const [selected, setSelected] = useState(mock.models[1].id);
-  const model = mock.models.find((m) => m.id === selected)!;
+  const fileRef = useRef<HTMLInputElement | null>(null);
 
+  const [datasets, setDatasets] = useState<Dataset[]>([]);
+  const [trainModalOpen, setTrainModalOpen] = useState(false);
+  const [trainingDataset, setTrainingDataset] = useState<string | null>(null);
+  const [selectedModel, setSelectedModel] = useState<string | null>(null);
+
+  // =========================
+  // FETCH DATASETS
+  // =========================
   useEffect(() => {
-    document.title = "Researcher · PhishLens";
+    fetchDatasets();
   }, []);
 
+  const fetchDatasets = async () => {
+    try {
+      const res = await fetch("http://localhost:5000/api/datasets/all");
+      const data = await res.json();
+
+      // Normalize backend data
+      const formatted = data.map((d: any) => ({
+        name: d.name,
+        size: d.size || "-",
+        rows: d.rows || "--",
+        status: d.status || "uploaded",
+      }));
+
+      setDatasets(formatted);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  // =========================
+  // FILE PICKER
+  // =========================
+  const handleClick = () => fileRef.current?.click();
+
+  const handleFileChange = (e: any) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    uploadDataset(file);
+  };
+
+  // =========================
+  // UPLOAD DATASET
+  // =========================
+  const uploadDataset = async (file: File) => {
+    try {
+      toast.loading("Uploading dataset...");
+
+      const formData = new FormData();
+      formData.append("file", file); // ✅ FIXED
+
+      const res = await fetch("http://localhost:5000/api/datasets/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) throw new Error(data.error);
+
+      setDatasets((prev) => [
+        ...prev,
+        {
+          name: file.name,
+          size: (file.size / 1024 / 1024).toFixed(2) + " MB",
+          rows: "--",
+          status: "uploaded",
+        },
+      ]);
+
+      toast.dismiss();
+      toast.success("Upload successful ✅");
+    } catch (err: any) {
+      toast.dismiss();
+      toast.error(err.message);
+    }
+  };
+
+  // =========================
+  // PREPROCESS
+  // =========================
+  const preprocessDataset = async (name: string) => {
+    try {
+      toast.loading("Preprocessing...");
+
+      await fetch("http://localhost:5000/api/datasets/preprocess", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ dataset: name }),
+      });
+
+      setDatasets((prev) =>
+        prev.map((d) =>
+          d.name === name ? { ...d, status: "processed" } : d
+        )
+      );
+
+      toast.dismiss();
+      toast.success("Preprocessing done ✅");
+    } catch {
+      toast.dismiss();
+      toast.error("Preprocessing failed ❌");
+    }
+  };
+
+  // =========================
+  // TRAIN MODEL
+  // =========================
+  const startTraining = async () => {
+    if (!trainingDataset || !selectedModel) return;
+
+    try {
+      toast.loading("Training started...");
+
+      await fetch("http://localhost:5000/api/models/train", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          dataset: trainingDataset,
+          model: selectedModel,
+        }),
+      });
+
+      setDatasets((prev) =>
+        prev.map((d) =>
+          d.name === trainingDataset
+            ? { ...d, status: "training" }
+            : d
+        )
+      );
+
+      setTrainModalOpen(false);
+      setSelectedModel(null);
+
+      toast.dismiss();
+      toast.success("Training started 🚀");
+    } catch {
+      toast.dismiss();
+      toast.error("Training failed ❌");
+    }
+  };
+
+  // =========================
+  // UI
+  // =========================
   return (
     <Shell>
-      <header className="mb-10 flex flex-wrap items-end justify-between gap-4 animate-[var(--animate-fade-up)]">
+      {/* HEADER */}
+      <div className="flex justify-between mb-6">
+        <h1 className="text-2xl font-bold">Researcher Dashboard</h1>
+
         <div>
-          <div className="text-xs uppercase tracking-widest text-muted-foreground">Researcher workspace</div>
-          <h1 className="mt-1 font-display text-4xl font-bold tracking-tight">Models &amp; evaluation</h1>
-        </div>
-        <div className="flex gap-2">
-          <button className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-2 text-sm hover:bg-accent">
-            <Database className="h-4 w-4" /> Upload dataset
-          </button>
-          <button className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-2 text-sm hover:bg-accent">
-            <Play className="h-4 w-4" /> Train
-          </button>
-          <button className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:opacity-90">
-            <Rocket className="h-4 w-4" /> Deploy
-          </button>
-        </div>
-      </header>
+          <input
+            type="file"
+            ref={fileRef}
+            className="hidden"
+            accept=".csv"
+            onChange={handleFileChange}
+          />
 
-      <section className="mb-8">
-        <div className="mb-3 text-xs uppercase tracking-widest text-muted-foreground">Active model</div>
-        <div className="flex flex-wrap gap-2">
-          {mock.models.map((m) => (
-            <button
-              key={m.id}
-              onClick={() => setSelected(m.id)}
-              className={`rounded-xl border px-4 py-3 text-left transition-all ${
-                selected === m.id
-                  ? "border-foreground bg-primary text-primary-foreground"
-                  : "border-border bg-card hover:bg-accent"
-              }`}
-            >
-              <div className="text-sm font-semibold">{m.name}</div>
-              <div className="mt-0.5 text-xs opacity-70">{m.params} params · {m.latency}</div>
-            </button>
-          ))}
+          <button
+            onClick={handleClick}
+            className="border px-4 py-2 rounded-md flex gap-2 items-center"
+          >
+            <Database size={16} /> Upload Dataset
+          </button>
         </div>
-      </section>
+      </div>
 
-      <section className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {[
-          { label: "Accuracy", value: model.accuracy },
-          { label: "Precision", value: model.precision },
-          { label: "Recall", value: model.recall },
-          { label: "F1-score", value: model.f1 },
-        ].map((m) => (
-          <div key={m.label} className="rounded-2xl border border-border bg-card p-5 shadow-[var(--shadow-soft)]">
-            <div className="text-xs uppercase tracking-widest text-muted-foreground">{m.label}</div>
-            <div className="mt-3 font-display text-4xl font-bold tracking-tight">{(m.value * 100).toFixed(1)}<span className="text-xl text-muted-foreground">%</span></div>
-            <div className="mt-3 h-1 w-full overflow-hidden rounded-full bg-muted">
-              <div className="h-full bg-foreground" style={{ width: `${m.value * 100}%` }} />
+      {/* DATASETS */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        {datasets.map((d) => (
+          <div
+            key={d.name}
+            className="border rounded-xl p-4 shadow-sm hover:shadow-md transition"
+          >
+            <h3 className="font-semibold">{d.name}</h3>
+
+            <p className="text-sm text-gray-500">
+              {d.size} • {d.rows} rows
+            </p>
+
+            {/* STATUS */}
+            <div className="flex gap-2 mt-3 text-xs">
+              {["uploaded", "processed", "training", "completed"].map(
+                (s) => (
+                  <span
+                    key={s}
+                    className={`px-2 py-1 rounded-full ${
+                      d.status === s
+                        ? "bg-black text-white"
+                        : "bg-gray-200"
+                    }`}
+                  >
+                    {s}
+                  </span>
+                )
+              )}
+            </div>
+
+            {/* ACTION */}
+            <div className="mt-4">
+              {d.status === "uploaded" && (
+                <button
+                  onClick={() => preprocessDataset(d.name)}
+                  className="w-full border py-2 rounded"
+                >
+                  Preprocess
+                </button>
+              )}
+
+              {d.status === "processed" && (
+                <button
+                  onClick={() => {
+                    setTrainingDataset(d.name);
+                    setTrainModalOpen(true);
+                  }}
+                  className="w-full bg-black text-white py-2 rounded"
+                >
+                  Train Model
+                </button>
+              )}
+
+              {d.status === "training" && (
+                <p className="text-yellow-600 text-sm">
+                  Training in progress...
+                </p>
+              )}
+
+              {d.status === "completed" && (
+                <button className="w-full border py-2 rounded">
+                  View Results
+                </button>
+              )}
             </div>
           </div>
         ))}
-      </section>
+      </div>
 
-      <section className="grid gap-4 lg:grid-cols-2">
-        <div className="rounded-2xl border border-border bg-card p-6 shadow-[var(--shadow-soft)]">
-          <div className="mb-1 text-xs uppercase tracking-widest text-muted-foreground">Confusion matrix</div>
-          <div className="mb-4 text-sm text-muted-foreground">{model.name} · validation set</div>
-          <div className="grid grid-cols-2 gap-2">
-            {mock.confusion.map((c) => {
-              const good = c.name === "TP" || c.name === "TN";
-              return (
-                <div
-                  key={c.name}
-                  className={`rounded-xl p-5 ${good ? "bg-foreground text-background" : "bg-muted text-foreground"}`}
+      {/* TRAIN MODAL */}
+      {trainModalOpen && (
+        <div className="fixed inset-0 bg-black/50 flex justify-center items-center">
+          <div className="bg-white p-6 rounded-xl w-[350px]">
+            <h2 className="text-lg font-semibold mb-4">
+              Select Model
+            </h2>
+
+            {["Logistic Regression", "BERT", "DistilBERT"].map(
+              (m) => (
+                <button
+                  key={m}
+                  onClick={() => setSelectedModel(m)}
+                  className={`block w-full text-left border p-2 mb-2 rounded ${
+                    selectedModel === m
+                      ? "bg-black text-white"
+                      : ""
+                  }`}
                 >
-                  <div className="text-xs uppercase tracking-widest opacity-70">{c.name}</div>
-                  <div className="mt-2 font-display text-3xl font-bold">{c.value}</div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
+                  {m}
+                </button>
+              )
+            )}
 
-        <div className="rounded-2xl border border-border bg-card p-6 shadow-[var(--shadow-soft)]">
-          <div className="mb-1 text-xs uppercase tracking-widest text-muted-foreground">Model comparison</div>
-          <div className="mb-4 text-sm text-muted-foreground">F1-score across architectures</div>
-          <div className="h-64 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={mock.models.map((m) => ({ name: m.name, f1: +(m.f1 * 100).toFixed(1) }))}>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-                <XAxis dataKey="name" tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} />
-                <YAxis domain={[80, 100]} tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} />
-                <Tooltip
-                  contentStyle={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 12, fontSize: 12 }}
-                  cursor={{ fill: "var(--accent)" }}
-                />
-                <Bar dataKey="f1" radius={[6, 6, 0, 0]}>
-                  {mock.models.map((m) => (
-                    <Cell key={m.id} fill={m.id === selected ? "var(--foreground)" : "var(--muted-foreground)"} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
+            <div className="flex gap-2 mt-4">
+              <button
+                onClick={() => setTrainModalOpen(false)}
+                className="flex-1 border py-2 rounded"
+              >
+                Cancel
+              </button>
+
+              <button
+                onClick={startTraining}
+                disabled={!selectedModel}
+                className="flex-1 bg-black text-white py-2 rounded"
+              >
+                Start
+              </button>
+            </div>
           </div>
         </div>
-      </section>
+      )}
     </Shell>
   );
 }

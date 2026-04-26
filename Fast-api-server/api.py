@@ -138,3 +138,7 @@ def predict(req: EmailRequest):
 @app.get("/")
 def home():
     return {"message": "API is running"}
+
+# ========================
+# RUN WITH: uvicorn api:app --reload
+# ========================

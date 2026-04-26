@@ -16,13 +16,13 @@ const getNavForRole = (role?: string) => {
   switch (role) {
     case "admin":
       return [
-        { to: "/", label: "Detector" },
-        { to: "/researcher", label: "Researcher" },
+        // { to: "/", label: "Detector" },
+        // { to: "/researcher", label: "Researcher" },
         { to: "/admin", label: "Admin" },
       ];
     case "researcher":
       return [
-        { to: "/", label: "Detector" },
+      { to: "/", label: "Detector" },
         { to: "/researcher", label: "Researcher" },
       ];
     case "user":

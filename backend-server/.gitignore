@@ -1,2 +1,8 @@
 /node_modules
 .env
+
+/backend-server/uploads
+/backend-server/.env
+
+/Fast-api_server/models
+/Fast-api_server/.env
