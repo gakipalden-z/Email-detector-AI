@@ -4,6 +4,6 @@
 /backend-server/uploads
 /backend-server/.env
 
-/Fast-api_server/models
-/Fast-api_server/.env
-/Fast-api_server/venv1
+/Fast-api-server/models
+/Fast-api-server/.env
+/Fast-api-server/venv1
