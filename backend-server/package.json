@@ -2,10 +2,12 @@
   "name": "server",
   "version": "1.0.0",
   "main": "server.js",
-  "type": "module",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "nodemon server.js"
+ "test": "jest",
+ "start": "nodemon server.js"
+  },
+   "jest": {
+    "testEnvironment": "node"
   },
   "keywords": [],
   "author": "",
@@ -25,6 +27,8 @@
     "speakeasy": "^2.0.0"
   },
   "devDependencies": {
-    "nodemon": "^3.1.14"
+    "jest": "^30.3.0",
+    "nodemon": "^3.1.14",
+    "supertest": "^7.2.2"
   }
 }

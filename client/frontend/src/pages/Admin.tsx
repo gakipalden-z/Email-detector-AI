@@ -10,6 +10,7 @@ type User = {
   email: string;
   role: "user" | "researcher" | "admin";
   status: "approved" | "pending" | "rejected" |"suspended";
+  twoFactorEnabled: boolean;
   createdAt: string;
 };
 
@@ -35,6 +36,7 @@ const [dangerAction, setDangerAction] = useState<"delete" | "suspend" | null>(nu
           email: u.email,
           role: u.role,
           status: u.status === "accepted" ? "approved" : u.status,
+          twoFactorEnabled: u.twoFactorEnabled,
           createdAt: new Date(u.createdAt).toLocaleString(),
         }));
 
@@ -169,6 +171,7 @@ const handleDangerAction = async () => {
     setDangerAction(null);
   }
 };
+console.log("Users with 2FA status:", users);
 // ===================================================================================================
 
   return (
@@ -354,30 +357,12 @@ const handleDangerAction = async () => {
     Strengthen account security by requiring a second verification step when logging in or performing sensitive actions.
   </p>
 
-  {/* STATUS CARD */}
-  {/* <div className="mt-5 flex items-center justify-between rounded-xl border p-4">
-    <div>
-      <p className="font-medium">System-wide 2FA Policy</p>
-      <p className="text-xs text-muted-foreground">
-        Enforce 2FA for all admin-level actions
-      </p>
-    </div>
-
-    <button className="rounded-md bg-primary px-3 py-1 text-sm text-white hover:opacity-90">
-      Enable Policy
-    </button>
-  </div> */}
-
-  {/* USER 2FA STATUS MOCK */}
-  {/* <div className="mt-5">
+{/* users with 2fa */}
+  <div className="mt-5">
     <h3 className="text-sm font-medium mb-2">User 2FA Status</h3>
 
     <div className="space-y-2">
-      {[
-        { email: "admin@gmail.com", status: "Enabled" },
-        { email: "user1@gmail.com", status: "Not Enabled" },
-        { email: "researcher@gmail.com", status: "Enabled" },
-      ].map((u) => (
+      {users.map((u) => (
         <div
           key={u.email}
           className="flex items-center justify-between rounded-lg border px-4 py-2"
@@ -386,17 +371,17 @@ const handleDangerAction = async () => {
 
           <span
             className={`text-xs px-2 py-1 rounded-full ${
-              u.status === "Enabled"
+              u.twoFactorEnabled
                 ? "bg-success/15 text-success"
                 : "bg-destructive/15 text-destructive"
             }`}
           >
-            {u.status}
+            {u.twoFactorEnabled ? "2FA Enabled" : "2FA Disabled"}
           </span>
         </div>
       ))}
     </div>
-  </div> */}
+  </div>
   <TwoFactorSetup />
 
   {/* ACTIONS */}

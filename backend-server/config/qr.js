@@ -1,6 +1,6 @@
 import speakeasy from "speakeasy";
 import QRCode from "qrcode";
-import { User } from "../models/User.js";
+import User from "../models/user.js";
 
 export const setup2FA = async (req, res) => {
   const userId = req.user.id;

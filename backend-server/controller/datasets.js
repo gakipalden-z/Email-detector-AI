@@ -1,33 +1,33 @@
-import fs from "fs";
-import path from "path";
-import { Dataset } from "../models/Dataset.js";
+// controllers/datasets.js
 
-export const getAllDatasets = async (req, res) => {
+const fs = require("fs");
+const path = require("path");
+const Dataset = require("../models/Dataset");
+
+// GET ALL DATASETS
+const getAllDatasets = async (req, res) => {
   try {
     const dirPath = path.join(process.cwd(), "uploads", "datasets");
 
-    // check if folder exists
     if (!fs.existsSync(dirPath)) {
-      return res.json([]); // no datasets yet
+      return res.json([]);
     }
 
     const files = fs.readdirSync(dirPath);
 
-    // Use for...of instead of map with async
     const datasets = [];
+
     for (const file of files) {
       const filePath = path.join(dirPath, file);
       const stats = fs.statSync(filePath);
-      
-      // Find dataset in database
+
       const data = await Dataset.findOne({ dataset_name: file });
-      console.log("data", data, file)
-      
+
       datasets.push({
         name: file,
         size: stats.size,
         createdAt: stats.birthtime,
-        preprocessing_status: data.preprocessing_status,
+        preprocessing_status: data?.preprocessing_status || "pending",
         text_column: data?.text_column || null,
         total_rows: data?.total_rows || 0,
         upload_date: data?.upload_date || stats.birthtime
@@ -41,12 +41,11 @@ export const getAllDatasets = async (req, res) => {
   }
 };
 
-// Call the API http://127.0.0.1:8000/datasets/preprocess
-export const preprocessData = async (req, res) => {
+// PREPROCESS DATA
+const preprocessData = async (req, res) => {
   try {
     const { dataset, column } = req.body;
-    console.log("Preprocessing dataset:", dataset);
-    
+
     if (!dataset || !column) {
       return res.status(400).json({
         success: false,
@@ -54,57 +53,52 @@ export const preprocessData = async (req, res) => {
       });
     }
 
-    // Update status to in_progress in database
+    // set status → in_progress
     await Dataset.findOneAndUpdate(
       { dataset_name: dataset },
-      { 
+      {
         preprocessing_status: "in_progress",
         text_column: column
       },
-      { upsert: true } // Create if doesn't exist
+      { upsert: true }
     );
 
-    // Call the preprocessing API (this is calling itself - be careful!)
-    // You should call your actual AI preprocessing service here
     const response = await fetch("http://127.0.0.1:8000/datasets/preprocess", {
       method: "POST",
       headers: {
-        "Content-Type": "application/json",
+        "Content-Type": "application/json"
       },
-      body: JSON.stringify({ dataset: dataset, column: column }),
+      body: JSON.stringify({ dataset, column })
     });
 
     if (response.ok) {
       const result = await response.json();
-      
-      console.log("hi")
-      // Save preprocessing results to database
+
       await Dataset.findOneAndUpdate(
         { dataset_name: dataset },
         {
           text_column: column,
           preprocessing_status: "processed",
           preprocessing_stats: result.stats || {},
-          processed_file_name: result.processed_file_name || `${dataset}_processed.csv`,
+          processed_file_name:
+            result.processed_file_name || `${dataset}_processed.csv`,
           total_rows: result.total_rows || 0,
           total_columns: result.total_columns || 0
         },
         { upsert: true }
       );
-      console.log("h2")
-      
+
       return res.status(200).json({
         success: true,
         message: "Dataset preprocessed successfully",
         data: result
       });
     } else {
-      // Update status to failed
       await Dataset.findOneAndUpdate(
         { dataset_name: dataset },
         { preprocessing_status: "failed" }
       );
-      
+
       return res.status(response.status).json({
         success: false,
         message: "Preprocessing API call failed"
@@ -112,17 +106,22 @@ export const preprocessData = async (req, res) => {
     }
   } catch (error) {
     console.log("Preprocessing error:", error);
-    
-    // Update status to failed in database
+
     await Dataset.findOneAndUpdate(
       { dataset_name: req.body.dataset },
       { preprocessing_status: "failed" }
     );
-    
+
     return res.status(500).json({
       success: false,
       message: "Preprocessing failed",
       error: error.message
     });
   }
+};
+
+// EXPORT
+module.exports = {
+  getAllDatasets,
+  preprocessData
 };

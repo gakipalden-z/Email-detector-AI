@@ -1,4 +1,4 @@
-import mongoose from "mongoose";
+const mongoose = require("mongoose");
 
 const datasetSchema = new mongoose.Schema({
   dataset_name: { type: String, required: true },
@@ -28,4 +28,5 @@ const datasetSchema = new mongoose.Schema({
   created_by: { type: String },
 }, { timestamps: true });
 
-export const Dataset = mongoose.model("Dataset", datasetSchema);
+const Dataset = mongoose.model("Dataset", datasetSchema);
+module.exports = Dataset;

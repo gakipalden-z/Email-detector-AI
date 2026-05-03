@@ -1,11 +1,11 @@
-import express from 'express';
-import dotenv from 'dotenv';
-import cors from "cors";
-import { connectDB } from './config/db.js';
-import {routes} from "./routes/routes.js"
-import {userRoutes } from "./routes/user.js"
-import datasetRoutes from "./routes/dataset.js";
-import path from "path";
+const express = require("express");
+const dotenv = require("dotenv");
+const cors = require("cors");
+const { connectDB } = require("./config/db");
+const { routes } = require("./routes/routes");
+const { userRoutes } = require("./routes/user");
+const datasetRoutes = require("./routes/dataset");
+const path = require("path");
 
 dotenv.config();
 const app = express();

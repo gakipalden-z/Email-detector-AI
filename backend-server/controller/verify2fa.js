@@ -1,11 +1,11 @@
-// const speakeasy = require("speakeasy");
-// const jwt = require("jsonwebtoken");
-// const { User } = require("../models/user");
-import speakeasy from "speakeasy";
-import jwt from "jsonwebtoken";
-import { User } from "../models/User.js";
+// controllers/2faController.js
 
-export const verify2FA = async (req, res) => {
+const speakeasy = require("speakeasy");
+const jwt = require("jsonwebtoken");
+const User = require("../models/User"); // ⚠️ no {} if default export
+
+// ENABLE 2FA
+const verify2FA = async (req, res) => {
   const userId = req.user.id;
   const { token } = req.body;
 
@@ -28,13 +28,12 @@ export const verify2FA = async (req, res) => {
   res.json({ message: "2FA enabled successfully" });
 };
 
-export const verifyLogin2FA = async (req, res) => {
+// VERIFY LOGIN WITH 2FA
+const verifyLogin2FA = async (req, res) => {
   const { userId, token } = req.body;
 
   const user = await User.findById(userId);
   if (!user) return res.status(400).json({ message: "User not found" });
-
-  console.log("Verifying 2FA for user:", token);
 
   const verified = speakeasy.totp.verify({
     secret: user.twoFactorSecret,
@@ -42,10 +41,6 @@ export const verifyLogin2FA = async (req, res) => {
     token,
     window: 1
   });
-  // console.log("2FA Verified:", verified);
-  console.log("Token received:", token, typeof token);
-console.log("Secret:", user.twoFactorSecret);
-console.log("Verified value:", verified, typeof verified);
 
   if (!verified) {
     return res.status(401).json({ message: "Invalid OTP" });
@@ -60,4 +55,9 @@ console.log("Verified value:", verified, typeof verified);
   user.password = undefined;
 
   res.json({ token: jwtToken, user });
+};
+
+module.exports = {
+  verify2FA,
+  verifyLogin2FA
 };
