@@ -1,6 +1,7 @@
 import { Shell } from "@/components/Shell";
 import { EmailForm } from "@/components/EmailForm";
 import { useEffect } from "react";
+import TwoFactorSetup from "@/components/TwoFactorSetup";
 
 export default function Detector() {
   useEffect(() => {
@@ -22,6 +23,7 @@ export default function Detector() {
         </p>
       </section>
       <EmailForm />
+      <TwoFactorSetup />
     </Shell>
   );
 }

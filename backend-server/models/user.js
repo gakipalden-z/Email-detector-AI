@@ -11,6 +11,14 @@ const userSchema = new mongoose.Schema({
     enum: ["user", "admin", "researcher"], 
     default: "user" 
   },
+   twoFactorEnabled: {
+    type: Boolean,
+    default: false
+  },
+
+  twoFactorSecret: {
+    type: String
+  }
 }, { timestamps: true });
 
-export const User = mongoose.model("User", userSchema);
+export const User = mongoose.models.User || mongoose.model("User", userSchema);

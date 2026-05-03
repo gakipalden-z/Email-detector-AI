@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Shell } from "@/components/Shell";
 import { Check, X, ShieldCheck, Users, Activity, Lock , Trash, Pause} from "lucide-react";
 import toast from "react-hot-toast";
+import TwoFactorSetup from "@/components/TwoFactorSetup";
 
 type User = {
   id: string;
@@ -354,7 +355,7 @@ const handleDangerAction = async () => {
   </p>
 
   {/* STATUS CARD */}
-  <div className="mt-5 flex items-center justify-between rounded-xl border p-4">
+  {/* <div className="mt-5 flex items-center justify-between rounded-xl border p-4">
     <div>
       <p className="font-medium">System-wide 2FA Policy</p>
       <p className="text-xs text-muted-foreground">
@@ -365,10 +366,10 @@ const handleDangerAction = async () => {
     <button className="rounded-md bg-primary px-3 py-1 text-sm text-white hover:opacity-90">
       Enable Policy
     </button>
-  </div>
+  </div> */}
 
   {/* USER 2FA STATUS MOCK */}
-  <div className="mt-5">
+  {/* <div className="mt-5">
     <h3 className="text-sm font-medium mb-2">User 2FA Status</h3>
 
     <div className="space-y-2">
@@ -395,10 +396,11 @@ const handleDangerAction = async () => {
         </div>
       ))}
     </div>
-  </div>
+  </div> */}
+  <TwoFactorSetup />
 
   {/* ACTIONS */}
-  <div className="mt-5 flex gap-3">
+  {/* <div className="mt-5 flex gap-3">
     <button className="rounded-md border px-3 py-1 text-sm hover:bg-accent">
       Require 2FA for All Admins
     </button>
@@ -406,7 +408,7 @@ const handleDangerAction = async () => {
     <button className="rounded-md border px-3 py-1 text-sm hover:bg-accent">
       Reset 2FA for User
     </button>
-  </div>
+  </div> */}
 </section>
     </Shell>
   );

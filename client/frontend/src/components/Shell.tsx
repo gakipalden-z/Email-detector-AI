@@ -128,7 +128,7 @@ export function Shell({ children }: { children: ReactNode }) {
       </header>
       <main className="mx-auto max-w-6xl px-6 py-12">{children}</main>
       <footer className="border-t border-border py-8 text-center text-xs text-muted-foreground">
-        PhishLens · research-grade phishing detection · UI prototype
+        PhishLens · research-grade phishing detection
       </footer>
     </div>
   );

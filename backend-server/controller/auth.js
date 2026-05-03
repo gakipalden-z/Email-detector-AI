@@ -19,30 +19,71 @@ export const register = async (req, res) => {
   res.json({ message: "User registered" });
 };
 
+// add 2 factor authentication to login
+// export const login = async (req, res) => {
+//   const { email, password } = req.body;
+
+
+//   const user = await User.findOne({ email });
+//   if (!user) return res.status(400).json({ message: "User not found" });
+
+//   if(user.status !== "accepted") {
+//     if (user.status === "suspended") {
+//       return res.status(403).json({ message: `Your account is suspended. Please contact support.` });
+//     }
+//     return res.status(403).json({ message: `Your registration is ${user.status}` });
+//   }
+
+
+//   const isMatch = await bcrypt.compare(password, user.password);
+//   if (!isMatch) return res.status(400).json({ message: "Invalid password" });
+
+//   const token = jwt.sign(
+//     { id: user._id, role: user.role },
+//     process.env.JWT_SECRET,
+//     { expiresIn: "1d" }
+//   );
+
+//   res.json({ token:token, user:user });
+// };
+// controllers/authController.js
+
+
 export const login = async (req, res) => {
   const { email, password } = req.body;
 
   const user = await User.findOne({ email });
   if (!user) return res.status(400).json({ message: "User not found" });
 
-  if(user.status !== "accepted") {
+  // status check
+  if (user.status !== "accepted") {
     if (user.status === "suspended") {
-      return res.status(403).json({ message: `Your account is suspended. Please contact support.` });
+      return res.status(403).json({ message: "Account suspended" });
     }
-    return res.status(403).json({ message: `Your registration is ${user.status}` });
+    return res.status(403).json({ message: `Status: ${user.status}` });
   }
-
 
   const isMatch = await bcrypt.compare(password, user.password);
   if (!isMatch) return res.status(400).json({ message: "Invalid password" });
 
+  // 🔐 CHECK 2FA
+  if (user.twoFactorEnabled) {
+    return res.json({
+      requires2FA: true,
+      userId: user._id
+    });
+  }
+
+  // ✅ NO 2FA → LOGIN COMPLETE
   const token = jwt.sign(
     { id: user._id, role: user.role },
     process.env.JWT_SECRET,
     { expiresIn: "1d" }
   );
 
-  res.json({ token:token, user:user });
+  user.password = undefined;
+
+  res.json({ token, user });
 };
 
 
