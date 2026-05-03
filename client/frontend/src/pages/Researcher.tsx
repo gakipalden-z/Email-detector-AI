@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import { Shell } from "@/components/Shell";
-import { Database, Terminal, X, ChevronUp, ChevronDown } from "lucide-react";
+import { Database, Terminal, X, ChevronUp, ChevronDown, TrendingUp, TrendingDown, Award, BarChart3, CheckCircle2, AlertCircle } from "lucide-react";
 import toast from "react-hot-toast";
 import TwoFactorSetup from "@/components/TwoFactorSetup";
 
@@ -9,6 +9,7 @@ type Dataset = {
   size: string;
   rows: string;
   status: "uploaded" | "processed" | "training" | "completed";
+  training_status?: "pending" | "trained";
 };
 
 type LogEntry = {
@@ -17,6 +18,14 @@ type LogEntry = {
   message: string;
   type: "info" | "success" | "error" | "warning";
   datasetName?: string;
+};
+
+type TrainingResult = {
+  model: string;
+  accuracy: number;
+  f1_score: number;
+  message?: string;
+  label_mapping?: any;
 };
 
 export default function Researcher() {
@@ -30,6 +39,8 @@ export default function Researcher() {
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [isLogPanelOpen, setIsLogPanelOpen] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [trainingResult, setTrainingResult] = useState<TrainingResult | null>(null);
+  const [showResults, setShowResults] = useState(false);
 
   // Auto-scroll logs to bottom
   useEffect(() => {
@@ -59,26 +70,58 @@ export default function Researcher() {
     fetchDatasets();
   }, []);
 
-  const fetchDatasets = async () => {
-    try {
-      addLog("Fetching datasets from server...", "info");
-      const res = await fetch("http://localhost:5000/api/datasets/all");
-      const data = await res.json();
-
-      const formatted = data.map((d: any) => ({
-        name: d.name,
-        size: d.size || "-",
-        rows: d.rows || "--",
-        status: d.preprocessing_status || "uploaded",
-      }));
-
-      setDatasets(formatted);
-      addLog(`Loaded ${formatted.length} datasets`, "success");
-    } catch (err: any) {
-      addLog(`Failed to fetch datasets: ${err.message}`, "error");
-      console.error(err);
+  const fetchTrainingResults = async (datasetName: string) => {
+  addLog(`Fetching training results for ${datasetName}...`, "info", datasetName);
+  
+  try {
+    const res = await fetch(`http://localhost:5000/api/datasets/results/${encodeURIComponent(datasetName)}`);
+    
+    if (!res.ok) {
+      const error = await res.json();
+      throw new Error(error.error || "Failed to fetch results");
     }
-  };
+    
+    const data = await res.json();
+    
+    // Set the training result from backend data
+    setTrainingResult({
+      model: data.model,
+      accuracy: data.accuracy,
+      f1_score: data.f1_score,
+    });
+    
+    setShowResults(true);
+    addLog(`✅ Loaded training results for ${datasetName}`, "success", datasetName);
+    
+  } catch (err: any) {
+    addLog(`❌ Failed to fetch results: ${err.message}`, "error", datasetName);
+    toast.error(err.message);
+  }
+};
+
+ const fetchDatasets = async () => {
+  try {
+    addLog("Fetching datasets from server...", "info");
+    const res = await fetch("http://localhost:5000/api/datasets/all");
+    const data = await res.json();
+
+    console.log("Raw datasets response:", data);
+
+    const formatted = data.map((d: any) => ({
+      name: d.dataset_name || d.name,  // Use dataset_name from your schema
+      size: d.size || "-",
+      rows: d.total_rows || d.rows || "--",
+      status: d.preprocessing_status || "uploaded",
+      training_status: d.training_status  // This will be "completed" after training
+    }));
+
+    setDatasets(formatted);
+    addLog(`Loaded ${formatted.length} datasets`, "success");
+  } catch (err: any) {
+    addLog(`Failed to fetch datasets: ${err.message}`, "error");
+    console.error(err);
+  }
+};
 
   // =========================
   // FILE PICKER
@@ -112,14 +155,13 @@ export default function Researcher() {
       });
 
       const data = await res.json();
-      console.log("data ", data);
 
       if (!res.ok) throw new Error(data.error);
 
       setDatasets((prev) => [
         ...prev,
         {
-          name: data.file.displayName, // Changed to displayName for UI
+          name: data.file.displayName,
           size: (file.size / 1024 / 1024).toFixed(2) + " MB",
           rows: "--",
           status: "uploaded",
@@ -149,7 +191,6 @@ export default function Researcher() {
     
     try {
       toast.loading("Preprocessing...");
-      console.log("name", name);
 
       addLog(`Analyzing dataset structure...`, "info", name);
       addLog(`Applying preprocessing steps (cleaning, encoding)...`, "info", name);
@@ -194,62 +235,69 @@ export default function Researcher() {
   // =========================
   // TRAIN MODEL
   // =========================
-  const startTraining = async () => {
-    if (!trainingDataset || !selectedModel) return;
+ const startTraining = async () => {
+  if (!trainingDataset || !selectedModel) return;
 
-    setIsProcessing(true);
-    addLog(`🚀 Starting training on "${trainingDataset}" with model: ${selectedModel}`, "info", trainingDataset);
+  setIsProcessing(true);
+  setShowResults(false);
+  setTrainingResult(null);
+  
+  addLog(`🚀 Starting training on "${trainingDataset}" with model: ${selectedModel}`, "info", trainingDataset);
 
-    try {
-      toast.loading("Training started...");
+  try {
+    toast.loading("Training in progress...");
 
-      addLog(`Initializing ${selectedModel} model...`, "info", trainingDataset);
-      addLog(`Splitting data into train/test sets...`, "info", trainingDataset);
-      addLog(`Training in progress... this may take a few minutes`, "warning", trainingDataset);
+    addLog(`Initializing ${selectedModel} model...`, "info", trainingDataset);
+    addLog(`Splitting data into train/test sets...`, "info", trainingDataset);
+    addLog(`Training in progress... this may take a few minutes`, "warning", trainingDataset);
 
-      const res = await fetch("http://localhost:5000/api/models/train", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          dataset: trainingDataset,
-          model: selectedModel,
-        }),
-      });
+    const res = await fetch("http://localhost:5000/api/datasets/train", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        dataset: trainingDataset,
+        model: selectedModel.toLowerCase(),
+        text_column: "Email Text",
+        label_column: "Email Type",
+      }),
+    });
 
-      if (!res.ok) {
-        const error = await res.json();
-        throw new Error(error.message);
-      }
-
-      const result = await res.json();
-
-      setDatasets((prev) =>
-        prev.map((d) =>
-          d.name === trainingDataset
-            ? { ...d, status: "training" }
-            : d
-        )
-      );
-
-      addLog(`✅ Training started successfully for ${trainingDataset}`, "success", trainingDataset);
-      addLog(`Training job ID: ${result.jobId || 'N/A'}`, "info", trainingDataset);
-      addLog(`Expected completion: ~5-10 minutes`, "info", trainingDataset);
-
-      setTrainModalOpen(false);
-      setSelectedModel(null);
-
-      toast.dismiss();
-      toast.success("Training started 🚀");
-    } catch (err: any) {
-      addLog(`❌ Training failed for ${trainingDataset}: ${err.message}`, "error", trainingDataset);
-      toast.dismiss();
-      toast.error("Training failed ❌");
-    } finally {
-      setIsProcessing(false);
+    if (!res.ok) {
+      const error = await res.json();
+      throw new Error(error.detail || error.message);
     }
-  };
+
+    const result = await res.json();
+    
+    // Store the training result
+    setTrainingResult(result);
+    setShowResults(true);
+
+    // ✅ IMPORTANT: Refresh datasets from backend to get updated training_status
+    await fetchDatasets();
+
+    // Add success log with metrics
+    addLog(`✅ Training completed successfully for ${trainingDataset}!`, "success", trainingDataset);
+    addLog(`📊 Model: ${result.model}`, "success", trainingDataset);
+    addLog(`🎯 Accuracy: ${(result.accuracy * 100).toFixed(2)}%`, "success", trainingDataset);
+    addLog(`📈 F1 Score: ${(result.f1_score * 100).toFixed(2)}%`, "success", trainingDataset);
+
+    setTrainModalOpen(false);
+    setSelectedModel(null);
+
+    toast.dismiss();
+    toast.success("Training completed successfully! 🎉");
+    
+  } catch (err: any) {
+    addLog(`❌ Training failed: ${err.message}`, "error", trainingDataset);
+    toast.dismiss();
+    toast.error(err.message || "Training failed ❌");
+  } finally {
+    setIsProcessing(false);
+  }
+};
 
   // =========================
   // CLEAR LOGS
@@ -275,6 +323,22 @@ export default function Researcher() {
     }
   };
 
+  // =========================
+  // GET PERFORMANCE COLOR
+  // =========================
+  const getPerformanceColor = (value: number) => {
+    if (value >= 0.9) return "text-green-600";
+    if (value >= 0.7) return "text-yellow-600";
+    return "text-red-600";
+  };
+
+  const getProgressColor = (value: number) => {
+    if (value >= 0.9) return "bg-green-500";
+    if (value >= 0.7) return "bg-yellow-500";
+    return "bg-red-500";
+  };
+
+  console.log("Current datasets state:", datasets);
   // =========================
   // UI
   // =========================
@@ -304,6 +368,115 @@ export default function Researcher() {
         </div>
       </div>
 
+      {/* TRAINING RESULTS MODAL */}
+      {showResults && trainingResult && (
+        <div className="fixed inset-0 bg-black/50 flex justify-center items-center z-50">
+          <div className="bg-white rounded-xl w-[500px] max-w-[90vw] shadow-2xl animate-in fade-in zoom-in duration-200">
+            {/* Header */}
+            <div className="flex justify-between items-center p-6 border-b">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-green-100 rounded-full">
+                  <CheckCircle2 className="text-green-600" size={24} />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold">Training Complete!</h2>
+                  <p className="text-sm text-gray-500">{trainingResult.model}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowResults(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="p-6 space-y-6">
+              {/* Accuracy Card */}
+              <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg p-4">
+                <div className="flex justify-between items-start mb-2">
+                  <div>
+                    <p className="text-sm text-gray-600 font-medium">Accuracy</p>
+                    <p className={`text-3xl font-bold ${getPerformanceColor(trainingResult.accuracy)}`}>
+                      {(trainingResult.accuracy * 100).toFixed(2)}%
+                    </p>
+                  </div>
+                  <Award className="text-blue-500" size={32} />
+                </div>
+                <div className="mt-3">
+                  <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                    <div 
+                      className={`h-full ${getProgressColor(trainingResult.accuracy)} transition-all duration-1000`}
+                      style={{ width: `${trainingResult.accuracy * 100}%` }}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* F1 Score Card */}
+              <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-lg p-4">
+                <div className="flex justify-between items-start mb-2">
+                  <div>
+                    <p className="text-sm text-gray-600 font-medium">F1 Score</p>
+                    <p className={`text-3xl font-bold ${getPerformanceColor(trainingResult.f1_score)}`}>
+                      {(trainingResult.f1_score * 100).toFixed(2)}%
+                    </p>
+                  </div>
+                  <BarChart3 className="text-purple-500" size={32} />
+                </div>
+                <div className="mt-3">
+                  <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                    <div 
+                      className={`h-full ${getProgressColor(trainingResult.f1_score)} transition-all duration-1000`}
+                      style={{ width: `${trainingResult.f1_score * 100}%` }}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Performance Summary */}
+              <div className="border-t pt-4">
+                <div className="flex gap-4 justify-around">
+                  <div className="text-center">
+                    <div className="flex items-center gap-1 text-sm text-gray-600">
+                      {trainingResult.accuracy >= 0.8 ? (
+                        <TrendingUp size={16} className="text-green-500" />
+                      ) : (
+                        <TrendingDown size={16} className="text-red-500" />
+                      )}
+                      <span>Performance</span>
+                    </div>
+                    <p className="text-sm font-medium mt-1">
+                      {trainingResult.accuracy >= 0.9 ? "Excellent" : 
+                       trainingResult.accuracy >= 0.7 ? "Good" : 
+                       "Needs Improvement"}
+                    </p>
+                  </div>
+                  <div className="text-center">
+                    <div className="flex items-center gap-1 text-sm text-gray-600">
+                      <Database size={16} />
+                      <span>Model Type</span>
+                    </div>
+                    <p className="text-sm font-medium mt-1">Classfication</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="border-t p-4 bg-gray-50 rounded-b-xl">
+              <button
+                onClick={() => setShowResults(false)}
+                className="w-full bg-black text-white py-2 rounded-lg hover:bg-gray-800 transition"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* MAIN CONTENT GRID */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* DATASETS SECTION */}
@@ -317,71 +490,103 @@ export default function Researcher() {
             ) : (
               datasets.map((d) => (
                 <div
-                  key={d.name}
-                  className="border rounded-xl p-4 shadow-sm hover:shadow-md transition"
-                >
-                  <h3 className="font-semibold">{d.name}</h3>
+  key={d.name}
+  className="border rounded-xl p-4 shadow-sm hover:shadow-md transition relative"
+>
+  {/* Header with Title and Publish Icon */}
+  <div className="flex justify-between items-start mb-2">
+    <h3 className="font-semibold break-all flex-1 pr-2">{d.name}</h3>
+    
+    {/* Small Publish Icon - Top Right Corner (only when trained) */}
+    {d.training_status === "trained" && (
+      <button
+        onClick={() => {
+          addLog(`Publishing ${d.name}...`, "info", d.name);
+          toast.success(`Published ${d.name}!`);
+          // Add your publish API call here later
+        }}
+        className="p-1.5 bg-blue-500 text-white rounded-full hover:bg-blue-600 transition shrink-0"
+        title="Publish model"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
+          <polyline points="16 6 12 2 8 6" />
+          <line x1="12" y1="2" x2="12" y2="15" />
+        </svg>
+      </button>
+    )}
+  </div>
 
-                  <p className="text-sm text-gray-500">
-                    {d.size} • {d.rows} rows
-                  </p>
+  {/* Dataset Info */}
+  <p className="text-sm text-gray-500">
+    {d.size} • {d.rows} rows
+  </p>
 
-                  {/* STATUS */}
-                  <div className="flex gap-2 mt-3 text-xs">
-                    {["uploaded", "processed", "training", "completed"].map(
-                      (s) => (
-                        <span
-                          key={s}
-                          className={`px-2 py-1 rounded-full ${
-                            d.status === s
-                              ? "bg-black text-white"
-                              : "bg-gray-200"
-                          }`}
-                        >
-                          {s}
-                        </span>
-                      )
-                    )}
-                  </div>
+  {/* Status Badges */}
+  <div className="flex gap-2 mt-3 text-xs">
+    {["uploaded", "processed", "training", "completed"].map(
+      (s) => (
+        <span
+          key={s}
+          className={`px-2 py-1 rounded-full ${
+            d.status === s
+              ? "bg-black text-white"
+              : "bg-gray-200"
+          }`}
+        >
+          {s}
+        </span>
+      )
+    )}
+  </div>
 
-                  {/* ACTION */}
-                  <div className="mt-4">
-                    {(d.status === "uploaded" || d.status === "pending") && (
-                      <button
-                        onClick={() => preprocessDataset(d.name)}
-                        disabled={isProcessing}
-                        className="w-full border py-2 rounded disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        Preprocess
-                      </button>
-                    )}
+  {/* Action Buttons */}
+  <div className="mt-4">
+    {(d.status === "uploaded" || d.status === "pending") && (
+      <button
+        onClick={() => preprocessDataset(d.name)}
+        disabled={isProcessing}
+        className="w-full border py-2 rounded disabled:opacity-50 disabled:cursor-not-allowed"
+      >
+        Preprocess
+      </button>
+    )}
 
-                    {d.status === "processed" && (
-                      <button
-                        onClick={() => {
-                          setTrainingDataset(d.name);
-                          setTrainModalOpen(true);
-                        }}
-                        disabled={isProcessing}
-                        className="w-full bg-black text-white py-2 rounded disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        Train Model
-                      </button>
-                    )}
+    {(d.status === "processed" && d.training_status !== "trained") && (
+      <button
+        onClick={() => {
+          setTrainingDataset(d.name);
+          setTrainModalOpen(true);
+        }}
+        disabled={isProcessing}
+        className="w-full bg-black text-white py-2 rounded disabled:opacity-50 disabled:cursor-not-allowed"
+      >
+        Train Model
+      </button>
+    )}
 
-                    {d.status === "training" && (
-                      <p className="text-yellow-600 text-sm text-center">
-                        Training in progress...
-                      </p>
-                    )}
+    {d.status === "training" && (
+      <div className="text-center">
+        <p className="text-yellow-600 text-sm mb-2">
+          Training in progress...
+        </p>
+        <div className="h-1 bg-gray-200 rounded-full overflow-hidden">
+          <div className="h-full bg-yellow-500 animate-pulse rounded-full" style={{ width: '60%' }} />
+        </div>
+      </div>
+    )}
 
-                    {d.status === "completed" && (
-                      <button className="w-full border py-2 rounded">
-                        View Results
-                      </button>
-                    )}
-                  </div>
-                </div>
+    {/* View Results Button - Full width at bottom (only when trained) */}
+    {d.training_status === "trained" && (
+      <button 
+        onClick={() => fetchTrainingResults(d.name)}
+        className="w-full bg-gradient-to-r from-green-500 to-emerald-500 text-white py-2 rounded hover:from-green-600 hover:to-emerald-600 transition"
+      >
+        View Results
+      </button>
+    )}
+  </div>
+</div>
               ))
             )}
           </div>
@@ -430,7 +635,7 @@ export default function Researcher() {
                   ) : (
                     logs.map((log) => (
                       <div
-                        key={log.id}
+                        key={log.message + log.timestamp.getTime()}
                         className={`text-xs p-2 rounded bg-white shadow-sm ${getLogStyle(log.type)}`}
                       >
                         <div className="flex justify-between items-start gap-2">
@@ -474,21 +679,19 @@ export default function Researcher() {
               Select Model for {trainingDataset}
             </h2>
 
-            {["Logistic Regression", "BERT", "DistilBERT"].map(
-              (m) => (
-                <button
-                  key={m}
-                  onClick={() => setSelectedModel(m)}
-                  className={`block w-full text-left border p-2 mb-2 rounded ${
-                    selectedModel === m
-                      ? "bg-black text-white"
-                      : ""
-                  }`}
-                >
-                  {m}
-                </button>
-              )
-            )}
+            {["logistic", "distilbert"].map((m) => (
+              <button
+                key={m}
+                onClick={() => setSelectedModel(m)}
+                className={`block w-full text-left border p-2 mb-2 rounded ${
+                  selectedModel === m
+                    ? "bg-black text-white"
+                    : ""
+                }`}
+              >
+                {m === "logistic" ? "Logistic Regression" : "DistilBERT"}
+              </button>
+            ))}
 
             <div className="flex gap-2 mt-4">
               <button
@@ -509,8 +712,8 @@ export default function Researcher() {
           </div>
         </div>
       )}
-            <TwoFactorSetup />
-
+      
+      <TwoFactorSetup />
     </Shell>
   );
 }

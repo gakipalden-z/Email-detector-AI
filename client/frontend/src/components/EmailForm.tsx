@@ -1,7 +1,22 @@
-import { useState } from "react";
-import { checkEmail, mock, type EmailResult, type ModelId } from "@/lib/mockApi";
-import { ResultCard } from "./ResultCard";
+import { useState, useEffect } from "react";
 import { Loader2, Sparkles, Cpu, ChevronDown } from "lucide-react";
+import { ResultCard } from "./ResultCard";
+import toast from "react-hot-toast";
+
+type Model = {
+  id: string;
+  name: string;
+  accuracy: number;
+  params: string;
+  latency: string;
+};
+
+type PredictionResult = {
+  input: string;
+  prediction: string;
+  confidence: number;
+  explanation: string;
+};
 
 const SAMPLES = [
   "URGENT: Your account will be suspended. Click here to verify.",
@@ -15,18 +30,98 @@ export function EmailForm() {
   const [showHeaders, setShowHeaders] = useState(false);
   const [headers, setHeaders] = useState("");
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<EmailResult | null>(null);
-  const [modelId, setModelId] = useState<ModelId>("distilbert");
+  const [result, setResult] = useState<PredictionResult | null>(null);
+  const [models, setModels] = useState<Model[]>([]);
+  const [selectedModelId, setSelectedModelId] = useState<string>("");
+  const [isLoadingModels, setIsLoadingModels] = useState(true);
 
-  const activeModel = mock.models.find((m) => m.id === modelId)!;
+  // Fetch available models from backend
+  useEffect(() => {
+    fetchModels();
+  }, []);
+
+  const fetchModels = async () => {
+    try {
+      const res = await fetch("http://localhost:5000/api/models/list");
+      const data = await res.json();
+      
+      if (data.models && data.models.length > 0) {
+        const formattedModels = data.models.map((m: any, index: number) => ({
+          id: m.name,
+          name: m.model_type === "logistic" ? "Logistic Regression" : "DistilBERT",
+          accuracy: m.accuracy || 0.85,
+          params: "~110M",
+          latency: "~120ms",
+        }));
+        setModels(formattedModels);
+        setSelectedModelId(formattedModels[0].id);
+      } else {
+        // Fallback to default model
+        setModels([{
+          id: "default",
+          name: "PhishLens AI",
+          accuracy: 0.89,
+          params: "~110M",
+          latency: "~120ms",
+        }]);
+        setSelectedModelId("default");
+      }
+      setIsLoadingModels(false);
+    } catch (err) {
+      console.error("Failed to fetch models:", err);
+      // Fallback to default model
+      setModels([{
+        id: "default",
+        name: "PhishLens AI",
+        accuracy: 0.89,
+        params: "~110M",
+        latency: "~120ms",
+      }]);
+      setSelectedModelId("default");
+      setIsLoadingModels(false);
+    }
+  };
+
+  const activeModel = models.find((m) => m.id === selectedModelId) || models[0];
 
   const submit = async () => {
-    if (!text.trim()) return;
+    if (!text.trim()) {
+      toast.error("Please enter an email to analyze");
+      return;
+    }
+    
     setLoading(true);
     setResult(null);
-    const res = await checkEmail([subject, headers, text].join("\n"), modelId);
-    setResult(res);
-    setLoading(false);
+    
+    // Combine subject, headers, and body
+    const fullEmail = [subject, headers, text].filter(Boolean).join("\n");
+    
+    try {
+      const res = await fetch("http://localhost:8000/predict", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email_text: fullEmail,
+        }),
+      });
+      
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.detail || "Prediction failed");
+      }
+      
+      const data = await res.json();
+      setResult(data);
+      toast.success("Analysis complete!");
+      
+    } catch (err: any) {
+      toast.error(err.message || "Failed to analyze email");
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -73,22 +168,27 @@ export function EmailForm() {
             <div className="relative">
               <Cpu className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
               <select
-                value={modelId}
-                onChange={(e) => setModelId(e.target.value as ModelId)}
+                value={selectedModelId}
+                onChange={(e) => setSelectedModelId(e.target.value)}
                 className="appearance-none rounded-md border border-border bg-background py-1.5 pl-8 pr-7 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-ring"
                 aria-label="Select model"
+                disabled={isLoadingModels}
               >
-                {mock.models.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.name} · {(m.accuracy * 100).toFixed(0)}%
-                  </option>
-                ))}
+                {isLoadingModels ? (
+                  <option>Loading models...</option>
+                ) : (
+                  models.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.name} · {(m.accuracy * 100).toFixed(0)}%
+                    </option>
+                  ))
+                )}
               </select>
               <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
             </div>
 
             <span className="hidden text-[10px] uppercase tracking-widest text-muted-foreground sm:inline">
-              {activeModel.params} · {activeModel.latency}
+              {!isLoadingModels && `${activeModel?.params || "~110M"} · ${activeModel?.latency || "~120ms"}`}
             </span>
           </div>
 

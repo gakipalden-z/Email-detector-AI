@@ -3,7 +3,7 @@
 const multer = require("multer");
 const express = require("express");
 const { upload } = require("../middleware/multer");
-const { getAllDatasets, preprocessData } = require("../controller/datasets");
+const { getAllDatasets, preprocessData, trainModel, getDatset} = require("../controller/datasets");
 const Dataset = require("../models/Dataset");
 const fs = require("fs");
 
@@ -11,6 +11,7 @@ const routes = express.Router();
 
 // UPLOAD ROUTE
 routes.post("/upload", upload.single("dataset"), async (req, res) => {
+  console.log("Received upload request");
   try {
     if (!req.file) {
       return res.status(400).json({ message: "No file uploaded" });
@@ -29,7 +30,7 @@ routes.post("/upload", upload.single("dataset"), async (req, res) => {
 
     const savedDataset = await dataset.save();
 
-    res.json({
+    return res.status(200).json({
       message: "File uploaded successfully",
       file: {
         displayName: req.file.originalname,
@@ -48,6 +49,7 @@ routes.post("/upload", upload.single("dataset"), async (req, res) => {
 // OTHER ROUTES
 routes.get("/all", getAllDatasets);
 routes.post("/preprocess", preprocessData);
+routes.post("/train", trainModel);
+routes.get("/results/:datasetName", getDatset);
 
-// ✅ FIXED EXPORT
 module.exports = routes;

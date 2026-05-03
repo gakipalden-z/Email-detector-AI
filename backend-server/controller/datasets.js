@@ -3,6 +3,7 @@
 const fs = require("fs");
 const path = require("path");
 const Dataset = require("../models/Dataset");
+const { route } = require("../routes/dataset");
 
 // GET ALL DATASETS
 const getAllDatasets = async (req, res) => {
@@ -30,6 +31,7 @@ const getAllDatasets = async (req, res) => {
         preprocessing_status: data?.preprocessing_status || "pending",
         text_column: data?.text_column || null,
         total_rows: data?.total_rows || 0,
+        training_status: data?.training_status,
         upload_date: data?.upload_date || stats.birthtime
       });
     }
@@ -96,7 +98,7 @@ const preprocessData = async (req, res) => {
     } else {
       await Dataset.findOneAndUpdate(
         { dataset_name: dataset },
-        { preprocessing_status: "failed" }
+        { preprocessing_status: "uploaded" }
       );
 
       return res.status(response.status).json({
@@ -109,7 +111,7 @@ const preprocessData = async (req, res) => {
 
     await Dataset.findOneAndUpdate(
       { dataset_name: req.body.dataset },
-      { preprocessing_status: "failed" }
+      { preprocessing_status: "uploaded" }
     );
 
     return res.status(500).json({
@@ -120,8 +122,104 @@ const preprocessData = async (req, res) => {
   }
 };
 
+const trainModel = async (req, res) => {
+  try{
+    const { dataset, model, text_column, label_column } = req.body;
+    if (!dataset || !model) {
+      return res.status(400).json({
+        success: false,
+        message: "Dataset or model name is not submitted"
+      });
+    } 
+    // post to ai server
+    const response = await fetch("http://localhost:8000/models/train", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ dataset, model, text_column, label_column })
+    });
+  
+    const result = await response.json();
+    console.log("train result ", result,);
+    await Dataset.findOneAndUpdate(
+      { dataset_name: dataset },
+      { training_status:"trained",
+        preprocessing_status: "completed",
+          model_accuracy: result.accuracy,
+          model_f1_score: result.f1_score,
+          selected_model: result.model
+        },
+      { upsert: true }
+    );
+
+
+    
+    return res.status(200).json(result);
+  } catch (err) {
+    console.error("Training error:", err);
+    res.status(500).json({ error: err.message });
+  }
+};
+// =========================
+// GET TRAINING RESULTS FOR A DATASET
+// =========================
+const getDatset = async (req, res) => {
+  try {
+    const { datasetName } = req.params;
+    
+    console.log(`Fetching training results for: ${datasetName}`);
+
+    // Find the dataset in MongoDB
+    const dataset = await Dataset.findOne({ dataset_name: datasetName });
+
+    if (!dataset) {
+      return res.status(404).json({ 
+        error: "Dataset not found",
+        dataset_name: datasetName 
+      });
+    }
+
+    // Check if training has been completed
+    if (dataset.training_status !== "trained") {
+      return res.status(404).json({ 
+        error: `Training not completed yet. Current status: ${dataset.training_status}`,
+        training_status: dataset.training_status
+      });
+    }
+
+    // Check if we have accuracy and f1_score
+    if (!dataset.model_accuracy || !dataset.model_f1_score) {
+      return res.status(404).json({ 
+        error: "No training results found for this dataset",
+        model_accuracy: dataset.model_accuracy,
+        model_f1_score: dataset.model_f1_score
+      });
+    }
+
+    console.log("data", dataset)
+    // Return the results
+    res.json({
+      model: dataset.selected_model == "Logistic Regression" ? "Logistic Regression" : "DistilBERT",
+      accuracy: dataset.model_accuracy,
+      f1_score: dataset.model_f1_score,
+      trained_at: dataset.updatedAt || dataset.training_completed_at,
+      dataset_name: dataset.dataset_name
+    });
+
+  } catch (err) {
+    console.error("Error fetching training results:", err);
+    res.status(500).json({ 
+      error: "Internal server error",
+      message: err.message 
+    });
+  }
+};
+
 // EXPORT
 module.exports = {
   getAllDatasets,
-  preprocessData
+  preprocessData,
+  trainModel,
+  getDatset
 };

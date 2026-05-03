@@ -422,9 +422,11 @@ async def upload_dataset(file: UploadFile = File(...)):
 @app.post("/models/train", response_model=TrainResponse)
 def train_model(request: TrainRequest):
     """Train a model on the specified dataset"""
+    print(f"Received training request: {request}")
     try:
         # Load dataset
         df = dataset_manager.load_dataset(request.dataset)
+        print(f"Dataset {request.dataset} loaded with {len(df)} rows and columns: {list(df.columns)}")
         
         # Validate columns
         validation = dataset_manager.validate_columns(df, [request.text_column, request.label_column])
@@ -437,6 +439,7 @@ def train_model(request: TrainRequest):
         
         X = df[request.text_column]
         y = df[request.label_column]
+        print("cleaned")
         
         # Train based on model type
         if request.model == "logistic":
@@ -447,6 +450,7 @@ def train_model(request: TrainRequest):
             result = model_trainer.train_logistic_regression(
                 X_train, X_test, y_train, y_test, request.dataset.replace('.csv', '')
             )
+            print("trained", result)
             return TrainResponse(**result)
         
         elif request.model == "distilbert":
