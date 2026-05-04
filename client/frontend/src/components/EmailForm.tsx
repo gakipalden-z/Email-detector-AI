@@ -6,9 +6,9 @@ import toast from "react-hot-toast";
 type Model = {
   id: string;
   name: string;
-  accuracy: number;
-  params: string;
-  latency: string;
+  type: string; // "logistic" or "distilbert"
+  filename: string;
+  size_kb?: number;
 };
 
 type PredictionResult = {
@@ -16,6 +16,7 @@ type PredictionResult = {
   prediction: string;
   confidence: number;
   explanation: string;
+  model_used?: string;
 };
 
 const SAMPLES = [
@@ -33,6 +34,7 @@ export function EmailForm() {
   const [result, setResult] = useState<PredictionResult | null>(null);
   const [models, setModels] = useState<Model[]>([]);
   const [selectedModelId, setSelectedModelId] = useState<string>("");
+  const [selectedModelType, setSelectedModelType] = useState<string>("logistic");
   const [isLoadingModels, setIsLoadingModels] = useState(true);
 
   // Fetch available models from backend
@@ -42,51 +44,80 @@ export function EmailForm() {
 
   const fetchModels = async () => {
     try {
-      const res = await fetch("http://localhost:5000/api/models/list");
-      const data = await res.json();
+      const res = await fetch("http://localhost:8000/models/list");
       
-      if (data.models && data.models.length > 0) {
-        const formattedModels = data.models.map((m: any, index: number) => ({
-          id: m.name,
-          name: m.model_type === "logistic" ? "Logistic Regression" : "DistilBERT",
-          accuracy: m.accuracy || 0.85,
-          params: "~110M",
-          latency: "~120ms",
-        }));
-        setModels(formattedModels);
-        setSelectedModelId(formattedModels[0].id);
-      } else {
-        // Fallback to default model
-        setModels([{
-          id: "default",
-          name: "PhishLens AI",
-          accuracy: 0.89,
-          params: "~110M",
-          latency: "~120ms",
-        }]);
-        setSelectedModelId("default");
+      if (!res.ok) {
+        throw new Error(`HTTP error! status: ${res.status}`);
       }
+      
+      const data = await res.json();
+      console.log("Fetched models:", data);
+      
+      if (data.models) {
+        const formattedModels: Model[] = [];
+        
+        // Add logistic regression models
+        if (data.models.logistic_models && data.models.logistic_models.length > 0) {
+          data.models.logistic_models.forEach((m: any) => {
+            formattedModels.push({
+              id: m.filename,
+              name: `Logistic Regression (${m.filename.replace('logistic_', '').replace('.pkl', '')})`,
+              type: "logistic",
+              filename: m.filename,
+              size_kb: m.size_kb,
+            });
+          });
+        }
+        
+        // Add DistilBERT models
+        if (data.models.distilbert_models && data.models.distilbert_models.length > 0) {
+          data.models.distilbert_models.forEach((m: any) => {
+            formattedModels.push({
+              id: m.filename,
+              name: `DistilBERT (${m.filename.replace('distilbert_', '')})`,
+              type: "distilbert",
+              filename: m.filename,
+            });
+          });
+        }
+        
+        if (formattedModels.length > 0) {
+          setModels(formattedModels);
+          setSelectedModelId(formattedModels[0].id);
+          setSelectedModelType(formattedModels[0].type);
+        } else {
+          // No models available
+          setModels([]);
+          toast.error("No models available. Train a model first.");
+        }
+      }
+      
       setIsLoadingModels(false);
     } catch (err) {
       console.error("Failed to fetch models:", err);
-      // Fallback to default model
-      setModels([{
-        id: "default",
-        name: "PhishLens AI",
-        accuracy: 0.89,
-        params: "~110M",
-        latency: "~120ms",
-      }]);
-      setSelectedModelId("default");
+      toast.error("Failed to load models. Is the backend running?");
       setIsLoadingModels(false);
     }
   };
 
-  const activeModel = models.find((m) => m.id === selectedModelId) || models[0];
+  const activeModel = models.find((m) => m.id === selectedModelId);
+
+  const handleModelChange = (modelId: string) => {
+    setSelectedModelId(modelId);
+    const model = models.find(m => m.id === modelId);
+    if (model) {
+      setSelectedModelType(model.type);
+    }
+  };
 
   const submit = async () => {
     if (!text.trim()) {
       toast.error("Please enter an email to analyze");
+      return;
+    }
+    
+    if (!activeModel) {
+      toast.error("Please select a model first");
       return;
     }
     
@@ -97,14 +128,27 @@ export function EmailForm() {
     const fullEmail = [subject, headers, text].filter(Boolean).join("\n");
     
     try {
-      const res = await fetch("http://localhost:8000/predict", {
+      // Choose endpoint based on model type
+      const endpoint = selectedModelType === "distilbert" 
+        ? "http://localhost:8000/predict/distilbert"
+        : "http://localhost:8000/predict/logistic";
+      
+      // Prepare request body
+      const requestBody: any = {
+        email_text: fullEmail,
+      };
+      
+      // Add model_name for logistic models
+      if (selectedModelType === "logistic") {
+        requestBody.model_name = activeModel.filename;
+      }
+      
+      const res = await fetch(endpoint, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          email_text: fullEmail,
-        }),
+        body: JSON.stringify(requestBody),
       });
       
       if (!res.ok) {
@@ -121,6 +165,16 @@ export function EmailForm() {
       console.error(err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const getModelInfo = () => {
+    if (!activeModel) return { params: "~110M", latency: "~120ms" };
+    
+    if (activeModel.type === "logistic") {
+      return { params: "~500K", latency: "~5ms" };
+    } else {
+      return { params: "~110M", latency: "~120ms" };
     }
   };
 
@@ -169,17 +223,19 @@ export function EmailForm() {
               <Cpu className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
               <select
                 value={selectedModelId}
-                onChange={(e) => setSelectedModelId(e.target.value)}
+                onChange={(e) => handleModelChange(e.target.value)}
                 className="appearance-none rounded-md border border-border bg-background py-1.5 pl-8 pr-7 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-ring"
                 aria-label="Select model"
-                disabled={isLoadingModels}
+                disabled={isLoadingModels || models.length === 0}
               >
                 {isLoadingModels ? (
                   <option>Loading models...</option>
+                ) : models.length === 0 ? (
+                  <option>No models available</option>
                 ) : (
                   models.map((m) => (
                     <option key={m.id} value={m.id}>
-                      {m.name} · {(m.accuracy * 100).toFixed(0)}%
+                      {m.type === "logistic" ? "⚡" : "🧠"} {m.name}
                     </option>
                   ))
                 )}
@@ -188,13 +244,17 @@ export function EmailForm() {
             </div>
 
             <span className="hidden text-[10px] uppercase tracking-widest text-muted-foreground sm:inline">
-              {!isLoadingModels && `${activeModel?.params || "~110M"} · ${activeModel?.latency || "~120ms"}`}
+              {!isLoadingModels && activeModel && (
+                <span>
+                  {activeModel.type === "logistic" ? "Logistic Regression" : "DistilBERT"} · {getModelInfo().params}
+                </span>
+              )}
             </span>
           </div>
 
           <button
             onClick={submit}
-            disabled={loading || !text.trim()}
+            disabled={loading || !text.trim() || !activeModel}
             className="inline-flex items-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground transition-all hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
           >
             {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
@@ -208,7 +268,11 @@ export function EmailForm() {
         {SAMPLES.map((s, i) => (
           <button
             key={i}
-            onClick={() => setText(s)}
+            onClick={() => {
+              setText(s);
+              setSubject("");
+              setHeaders("");
+            }}
             className="rounded-full border border-border bg-card px-3 py-1 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
           >
             sample {i + 1}
@@ -216,7 +280,7 @@ export function EmailForm() {
         ))}
       </div>
 
-      {result && <ResultCard result={result} originalText={text} />}
+      {result && <ResultCard result={result} originalText={text} modelType={selectedModelType} />}
     </div>
   );
 }

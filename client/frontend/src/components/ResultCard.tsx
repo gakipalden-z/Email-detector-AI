@@ -1,18 +1,20 @@
-import { AlertTriangle, CheckCircle2, Shield, ShieldAlert } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Shield, ShieldAlert, Zap, Brain } from "lucide-react";
 
 type PredictionResult = {
   input: string;
   prediction: string;
   confidence: number;
   explanation: string;
+  model_used?: string;
 };
 
 interface ResultCardProps {
   result: PredictionResult;
   originalText: string;
+  modelType?: string;
 }
 
-export function ResultCard({ result, originalText }: ResultCardProps) {
+export function ResultCard({ result, originalText, modelType }: ResultCardProps) {
   const isPhish = result.prediction === "Phishing Email";
   const pct = Math.round(result.confidence * 100);
 
@@ -61,6 +63,13 @@ export function ResultCard({ result, originalText }: ResultCardProps) {
   // Split explanation into bullet points
   const explanationPoints = result.explanation.split("|").map(point => point.trim());
 
+  // Get confidence level color
+  const getConfidenceColor = () => {
+    if (pct >= 90) return isPhish ? "text-red-600" : "text-green-600";
+    if (pct >= 70) return "text-yellow-600";
+    return "text-blue-600";
+  };
+
   return (
     <div className="grid gap-4 animate-[var(--animate-fade-up)] md:grid-cols-5">
       <div
@@ -80,10 +89,15 @@ export function ResultCard({ result, originalText }: ResultCardProps) {
         <div className="mt-8">
           <div className="flex items-baseline justify-between text-xs uppercase tracking-widest opacity-80">
             <span>Confidence</span>
-            <span className="font-mono text-base">{pct}%</span>
+            <span className={`font-mono text-base ${getConfidenceColor()}`}>{pct}%</span>
           </div>
           <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-black/20">
-            <div className="h-full bg-current transition-all duration-700" style={{ width: `${pct}%` }} />
+            <div 
+              className={`h-full transition-all duration-700 ${
+                isPhish ? "bg-white" : "bg-white"
+              }`} 
+              style={{ width: `${pct}%` }} 
+            />
           </div>
         </div>
       </div>
@@ -93,7 +107,19 @@ export function ResultCard({ result, originalText }: ResultCardProps) {
           <span>
             Analyzed by <span className="font-medium text-foreground">PhishLens AI</span>
           </span>
-          <span className="font-mono">DistilBERT v2.1</span>
+          <span className="flex items-center gap-1.5">
+            {modelType === "logistic" ? (
+              <>
+                <Zap className="h-3 w-3 text-yellow-500" />
+                <span className="font-mono">Logistic Regression</span>
+              </>
+            ) : (
+              <>
+                <Brain className="h-3 w-3 text-purple-500" />
+                <span className="font-mono">DistilBERT v2.1</span>
+              </>
+            )}
+          </span>
         </div>
 
         <div className="rounded-2xl border border-border bg-card p-6 shadow-[var(--shadow-soft)]">
@@ -115,6 +141,21 @@ export function ResultCard({ result, originalText }: ResultCardProps) {
           <p className="mt-3 whitespace-pre-wrap font-mono text-sm leading-relaxed">
             {highlight(originalText || result.input, highlightTerms)}
           </p>
+        </div>
+
+        {/* Model Performance Indicator */}
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <span>
+            {modelType === "logistic" 
+              ? "⚡ Fast prediction (~5ms)" 
+              : "🧠 Deep analysis (~120ms)"}
+          </span>
+          {result.model_used && (
+            <>
+              <span>·</span>
+              <span className="font-mono">{result.model_used}</span>
+            </>
+          )}
         </div>
       </div>
     </div>
