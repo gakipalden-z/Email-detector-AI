@@ -3,7 +3,7 @@ import { EmailForm } from "@/components/EmailForm";
 import { useEffect, useState } from "react";
 import TwoFactorSetup from "@/components/TwoFactorSetup";
 // DOTENV BACKEND_SERVER
-const BACKEND_SERVER = process.env.BACKEND_SERVER || "http://localhost:8000";
+const BACKEND_SERVER = process.env.BACKEND_SERVER;
 
 type Model = {
   filename: string;
@@ -32,7 +32,7 @@ export default function Detector() {
 
   const fetchAvailableModels = async () => {
     try {
-      const res = await fetch("http://localhost:8000/models/list");
+      const res = await fetch(`${BACKEND_SERVER}/models/list`);
       
       if (!res.ok) {
         throw new Error(`HTTP error! status: ${res.status}`);

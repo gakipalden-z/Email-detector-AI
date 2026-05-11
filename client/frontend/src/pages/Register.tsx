@@ -5,6 +5,9 @@ import { auth, type AuthUser } from "@/lib/auth";
 import { ShieldCheck, Loader2 } from "lucide-react";
 import toast from "react-hot-toast";
 
+// DOTENV BACKEND_SERVER
+const BACKEND_SERVER = process.env.BACKEND_SERVER;
+
 export default function Register() {
   const navigate = useNavigate();
   const [name, setName] = useState("");
@@ -30,7 +33,7 @@ export default function Register() {
   setLoading(true);
 
   try {
-    const res = await fetch("http://localhost:5000/api/users/register", {
+    const res = await fetch(`${BACKEND_SERVER}/api/users/register`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
