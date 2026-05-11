@@ -5,6 +5,9 @@ import { Shell } from "@/components/Shell";
 import { ShieldCheck, Loader2 } from "lucide-react";
 import toast from "react-hot-toast";
 
+// DOTENV BACKEND_SERVER
+const BACKEND_SERVER = process.env.BACKEND_SERVER;
+
 export default function Login() {
   const navigate = useNavigate();
 
@@ -50,7 +53,7 @@ export default function Login() {
     setLoading(true);
 
     try {
-      const res = await fetch("http://localhost:5000/api/users/login", {
+      const res = await fetch(`${BACKEND_SERVER}/api/users/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
@@ -85,7 +88,7 @@ export default function Login() {
 
     try {
       const res = await fetch(
-        "http://localhost:5000/api/users/2fa/login",
+        `${BACKEND_SERVER}/api/users/2fa/login`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
