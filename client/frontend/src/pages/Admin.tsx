@@ -3,6 +3,8 @@ import { Shell } from "@/components/Shell";
 import { Check, X, ShieldCheck, Users, Activity, Lock , Trash, Pause} from "lucide-react";
 import toast from "react-hot-toast";
 import TwoFactorSetup from "@/components/TwoFactorSetup";
+// DOTENV BACKEND_SERVER
+const BACKEND_SERVER = process.env.BACKEND_SERVER;
 
 type User = {
   id: string;
@@ -27,7 +29,7 @@ const [dangerAction, setDangerAction] = useState<"delete" | "suspend" | null>(nu
 
     const fetchUsers = async () => {
       try {
-        const res = await fetch("http://localhost:5000/api/users/all");
+        const res = await fetch(`${BACKEND_SERVER}/api/users/all`);
         const data = await res.json();
 
         const formatted = data.map((u: any) => ({
@@ -55,7 +57,7 @@ const [dangerAction, setDangerAction] = useState<"delete" | "suspend" | null>(nu
       // STATUS UPDATE
       if (patch.status) {
         const res = await fetch(
-          `http://localhost:5000/api/users/status/${id}`,
+          `${BACKEND_SERVER}/api/users/status/${id}`,
           {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
@@ -75,7 +77,7 @@ const [dangerAction, setDangerAction] = useState<"delete" | "suspend" | null>(nu
       // ROLE UPDATE
       if (patch.role) {
         const res = await fetch(
-          `http://localhost:5000/api/users/role/${id}`,
+          `${BACKEND_SERVER}/api/users/role/${id}`,
           {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
@@ -109,7 +111,7 @@ const [dangerAction, setDangerAction] = useState<"delete" | "suspend" | null>(nu
 const deleteUser = async (id: string) => {
   try {
     const res = await fetch(
-      `http://localhost:5000/api/users/delete/${id}`,
+      `${BACKEND_SERVER}/api/users/delete/${id}`,
       {
         method: "DELETE",
       }
@@ -134,7 +136,7 @@ const deleteUser = async (id: string) => {
 const suspendUser = async (id: string) => {
   try {
     const res = await fetch(
-      `http://localhost:5000/api/users/suspend/${id}`,
+      `${BACKEND_SERVER}/api/users/suspend/${id}`,
       {
         method: "PUT",
       }
