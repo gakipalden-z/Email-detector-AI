@@ -2,11 +2,13 @@
 
 const express = require("express");
 const axios = require("axios");
+const dotenv = require("dotenv");
 
 const routes = express.Router();
 
-const fast_api_server = "http://127.0.0.1:8000";
+dotenv.config();
 
+const fast_api_server = process.env.AI_SERVER;
 // TEST ROUTE
 routes.get("/test", (req, res) => {
   res.status(200).json({

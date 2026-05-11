@@ -3,6 +3,8 @@ import { Shell } from "@/components/Shell";
 import { Database, Terminal, X, ChevronUp, ChevronDown, TrendingUp, TrendingDown, Award, BarChart3, CheckCircle2, AlertCircle } from "lucide-react";
 import toast from "react-hot-toast";
 import TwoFactorSetup from "@/components/TwoFactorSetup";
+// DOTENV BACKEND_SERVER
+const BACKEND_SERVER = process.env.BACKEND_SERVER;
 
 type Dataset = {
   name: string;
@@ -74,7 +76,7 @@ export default function Researcher() {
   addLog(`Fetching training results for ${datasetName}...`, "info", datasetName);
   
   try {
-    const res = await fetch(`http://localhost:5000/api/datasets/results/${encodeURIComponent(datasetName)}`);
+    const res = await fetch(`${BACKEND_SERVER}/api/datasets/results/${encodeURIComponent(datasetName)}`);
     
     if (!res.ok) {
       const error = await res.json();
@@ -102,7 +104,7 @@ export default function Researcher() {
  const fetchDatasets = async () => {
   try {
     addLog("Fetching datasets from server...", "info");
-    const res = await fetch("http://localhost:5000/api/datasets/all");
+    const res = await fetch(`${BACKEND_SERVER}/api/datasets/all`);
     const data = await res.json();
 
     console.log("Raw datasets response:", data);
@@ -149,7 +151,7 @@ export default function Researcher() {
 
       addLog(`Sending ${file.name} to server...`, "info", file.name);
 
-      const res = await fetch("http://localhost:5000/api/datasets/upload", {
+      const res = await fetch(`${BACKEND_SERVER}/api/datasets/upload`, {
         method: "POST",
         body: formData,
       });
@@ -195,7 +197,7 @@ export default function Researcher() {
       addLog(`Analyzing dataset structure...`, "info", name);
       addLog(`Applying preprocessing steps (cleaning, encoding)...`, "info", name);
 
-      const res = await fetch("http://localhost:5000/api/datasets/preprocess", {
+      const res = await fetch(`${BACKEND_SERVER}/api/datasets/preprocess`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -251,7 +253,7 @@ export default function Researcher() {
     addLog(`Splitting data into train/test sets...`, "info", trainingDataset);
     addLog(`Training in progress... this may take a few minutes`, "warning", trainingDataset);
 
-    const res = await fetch("http://localhost:5000/api/datasets/train", {
+    const res = await fetch(`${BACKEND_SERVER}/api/datasets/train`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

@@ -2,6 +2,8 @@ import { Shell } from "@/components/Shell";
 import { EmailForm } from "@/components/EmailForm";
 import { useEffect, useState } from "react";
 import TwoFactorSetup from "@/components/TwoFactorSetup";
+// DOTENV BACKEND_SERVER
+const BACKEND_SERVER = process.env.BACKEND_SERVER || "http://localhost:8000";
 
 type Model = {
   filename: string;

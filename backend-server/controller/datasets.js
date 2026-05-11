@@ -4,6 +4,9 @@ const fs = require("fs");
 const path = require("path");
 const Dataset = require("../models/Dataset");
 const { route } = require("../routes/dataset");
+const dotenv = require("dotenv");
+
+dotenv.config();
 
 // GET ALL DATASETS
 const getAllDatasets = async (req, res) => {
@@ -65,7 +68,7 @@ const preprocessData = async (req, res) => {
       { upsert: true }
     );
 
-    const response = await fetch("http://127.0.0.1:8000/datasets/preprocess", {
+    const response = await fetch(`${process.env.AI_SERVER}/datasets/preprocess`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json"
@@ -132,7 +135,7 @@ const trainModel = async (req, res) => {
       });
     } 
     // post to ai server
-    const response = await fetch("http://localhost:8000/models/train", {
+    const response = await fetch(`${process.env.AI_SERVER}/models/train`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json"
